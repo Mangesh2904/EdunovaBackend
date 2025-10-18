@@ -1,4 +1,4 @@
-import { askGemini } from '../services/geminiService.js';
+import { askGemini, generateContent } from '../services/geminiService.js';
 import Placement from '../models/Placement.js';
 
 export const generatePlacementContent = async (req, res) => {
@@ -22,37 +22,46 @@ export const generatePlacementContent = async (req, res) => {
       return res.status(400).json({ error: 'Role is required' });
     }
 
-    // Generate questions
-    const questionsPrompt = `Generate 10 multiple-choice questions that are commonly asked in ${companyName} interviews for the ${role} position. 
+    // Generate company-specific, purely technical questions
+    const questionsPrompt = `You are a senior technical interviewer at ${companyName}. Generate 10 TECHNICAL interview questions for the ${role} position.
 
-Format the response as a JSON array with this exact structure:
+**CRITICAL: ALL QUESTIONS MUST BE TECHNICAL - NO BEHAVIORAL QUESTIONS**
+
+**RESEARCH ${companyName}:**
+- Core products, services, and technologies
+- Tech stack: programming languages, frameworks, databases, cloud services
+- Scale and technical challenges
+- Technologies ${role} works with at ${companyName}
+
+**QUESTION BREAKDOWN:**
+1. 4 questions: Data Structures & Algorithms (arrays, trees, graphs, sorting, searching)
+2. 3 questions: System Design & Architecture (scalability, databases, APIs, microservices)
+3. 2 questions: Technology-Specific (${companyName}'s tech stack - Java, Python, React, AWS, etc.)
+4. 1 question: Problem Solving & Optimization (time/space complexity, trade-offs)
+
+**FORMAT - Return ONLY this JSON array:**
 [
   {
-    "question": "What is the time complexity of binary search?",
-    "options": ["O(n)", "O(log n)", "O(n log n)", "O(1)"],
+    "question": "At ${companyName}, you need to process ${companyName}-scale data. Which data structure would you use for [specific technical scenario]?",
+    "options": ["Array with O(n) lookup", "Hash Map with O(1) lookup", "Binary Search Tree with O(log n)", "Trie with O(k) complexity"],
     "correctAnswer": 1,
-    "explanation": "Binary search has O(log n) time complexity because it eliminates half of the search space in each iteration."
+    "explanation": "Hash Map is optimal because [technical reasoning with Big-O analysis]. At ${companyName}'s scale of [mention scale], this provides best performance.",
+    "difficulty": "Medium",
+    "category": "Data Structures"
   }
 ]
 
-Focus on:
-- Technical concepts relevant to ${role} at ${companyName}
-- Role-specific skills and knowledge areas
-- Data structures and algorithms (if applicable to ${role})
-- System design concepts (if applicable to ${role})
-- Programming fundamentals (if applicable to ${role})
-- Domain-specific knowledge for ${role}
-- Company-specific technologies they use for ${role}
+**REQUIREMENTS:**
+- ALL questions MUST be technical (coding, algorithms, system design, architecture)
+- NO behavioral, cultural, or soft-skill questions
+- Use ${companyName}'s actual technologies (AWS, GCP, Kubernetes, React, Node.js, etc.)
+- Include Big-O notation and complexity analysis where relevant
+- Reference ${companyName}'s scale (millions of users, petabytes of data, etc.)
+- Mix difficulty: 3 Easy, 5 Medium, 2 Hard
+- Categories: "Data Structures", "Algorithms", "System Design", "Coding", "Databases", "Architecture"
+- Provide detailed technical explanations
 
-Make sure the questions are:
-- Realistic and commonly asked for ${role} position
-- Appropriate difficulty level for ${role}
-- Cover diverse topics relevant to ${role}
-- Have clear correct answers
-- Include helpful explanations
-- Mix technical and behavioral questions as appropriate for ${role}
-
-Return ONLY the JSON array, no additional text or formatting.`;
+Return ONLY the JSON array, no other text.`;
 
     // Generate concepts
     const conceptsPrompt = `Create a comprehensive study guide for ${companyName} ${role} position placement preparation. Include the most important concepts, topics, and areas to focus on specifically for the ${role} role.
@@ -149,49 +158,94 @@ Return ONLY the JSON array, no additional text or formatting.`;
 
 Make it comprehensive, actionable, and specifically tailored to ${companyName}'s ${role} interview process and requirements.`;
 
-    // Get questions and concepts in parallel
+    // Get questions and concepts in parallel using generateContent (no chat history needed)
     console.log('Sending prompts to Gemini for:', companyName, 'and role:', role);
     const [questionsResponse, conceptsResponse] = await Promise.all([
-      askGemini(questionsPrompt),
-      askGemini(conceptsPrompt)
+      generateContent(questionsPrompt, 4096),
+      generateContent(conceptsPrompt, 4096)
     ]);
     console.log('Received responses from Gemini');
+    console.log('Questions response preview:', questionsResponse.substring(0, 100));
 
-    // Parse questions JSON
+    // Parse questions JSON with robust error handling
     let questions;
     try {
-      // Clean the response to extract JSON
-      const cleanedQuestionsResponse = questionsResponse
-        .replace(/```json\n?/g, '')
-        .replace(/```\n?/g, '')
+      console.log('Raw questions response length:', questionsResponse.length);
+      console.log('First 200 chars:', questionsResponse.substring(0, 200));
+      
+      // Clean the response to extract JSON - more aggressive cleaning
+      let cleanedQuestionsResponse = questionsResponse
+        .replace(/```json\n?/gi, '')
+        .replace(/```\n?/gi, '')
+        .replace(/^[^[\{]*/, '') // Remove any text before [ or {
+        .replace(/[^\]\}]*$/, '') // Remove any text after ] or }
         .trim();
+      
+      // Try to find JSON array in the response
+      const jsonArrayMatch = cleanedQuestionsResponse.match(/\[[\s\S]*\]/);
+      if (jsonArrayMatch) {
+        cleanedQuestionsResponse = jsonArrayMatch[0];
+      }
+      
+      console.log('Cleaned response length:', cleanedQuestionsResponse.length);
       
       questions = JSON.parse(cleanedQuestionsResponse);
       
       // Validate questions format
       if (!Array.isArray(questions) || questions.length === 0) {
-        throw new Error('Invalid questions format');
+        throw new Error('Invalid questions format - not an array or empty');
       }
 
-      // Validate each question has required fields
-      questions.forEach((q, index) => {
-        if (!q.question || !Array.isArray(q.options) || q.options.length !== 4 || 
-            typeof q.correctAnswer !== 'number' || q.correctAnswer < 0 || q.correctAnswer > 3) {
-          throw new Error(`Invalid question format at index ${index}`);
+      // Validate and fix each question
+      questions = questions.map((q, index) => {
+        if (!q.question || !Array.isArray(q.options) || q.options.length !== 4) {
+          console.warn(`Question ${index} missing required fields, using default`);
+          return {
+            question: `Technical question ${index + 1} for ${role} at ${companyName}`,
+            options: ["Option A", "Option B", "Option C", "Option D"],
+            correctAnswer: 0,
+            explanation: "Detailed explanation needed.",
+            difficulty: "Medium",
+            category: "Technical"
+          };
         }
+        // Ensure correctAnswer is valid
+        if (typeof q.correctAnswer !== 'number' || q.correctAnswer < 0 || q.correctAnswer > 3) {
+          q.correctAnswer = 0;
+        }
+        // Add default values if missing
+        q.difficulty = q.difficulty || "Medium";
+        q.category = q.category || "Technical";
+        q.explanation = q.explanation || "Review this concept for interviews.";
+        return q;
       });
 
+      console.log(`Successfully parsed ${questions.length} questions`);
+
     } catch (parseError) {
-      console.error('Error parsing questions JSON:', parseError);
-      // Fallback questions if parsing fails
+      console.error('Error parsing questions JSON:', parseError.message);
+      console.error('Response that failed:', questionsResponse.substring(0, 500));
+      
+      // Fallback questions with company/role context
       questions = [
         {
-          question: `What is a key technical skill required for ${companyName}?`,
-          options: ["Data Structures", "Algorithms", "System Design", "All of the above"],
+          question: `What are the key responsibilities of a ${role} at ${companyName}?`,
+          options: ["Data Analysis", "Stakeholder Management", "Strategic Planning", "All of the above"],
           correctAnswer: 3,
-          explanation: "All of these skills are typically important for technical interviews."
+          explanation: `As a ${role}, you'll typically handle multiple responsibilities including analysis, communication, and planning.`,
+          difficulty: "Easy",
+          category: "Role Understanding"
+        },
+        {
+          question: `Which skill is most important for ${role} position?`,
+          options: ["Technical Knowledge", "Communication", "Problem Solving", "All are equally important"],
+          correctAnswer: 3,
+          explanation: "A balanced skill set is crucial for success in this role.",
+          difficulty: "Medium",
+          category: "Skills Assessment"
         }
       ];
+      console.log('Using fallback questions');
     }
 
     // Save to database if user is authenticated
@@ -237,5 +291,108 @@ export const getPlacementHistory = async (req, res) => {
   } catch (error) {
     console.error('Error fetching placement history:', error);
     res.status(500).json({ error: 'Failed to fetch placement history' });
+  }
+};
+
+export const searchCompanies = async (req, res) => {
+  const { query } = req.query;
+
+  if (!query || query.trim().length < 2) {
+    return res.status(400).json({ error: 'Query must be at least 2 characters' });
+  }
+
+  try {
+    const searchPrompt = `List 10 well-known technology companies whose names start with or contain "${query}". Include both large corporations and notable startups.
+
+Return ONLY a JSON array of company names, no additional text:
+["Company Name 1", "Company Name 2", ...]
+
+Examples format: ["Google", "Microsoft", "Amazon", "Meta", "Netflix", "Apple", "Tesla", "Uber", "Airbnb", "Stripe"]
+
+Focus on:
+- Tech companies (software, hardware, cloud, AI, etc.)
+- Companies known for hiring software engineers
+- Mix of FAANG, unicorns, and well-known startups
+- Real company names only
+
+Return exactly 10 suggestions that match "${query}".`;
+
+    const response = await generateContent(searchPrompt, 1024);
+    
+    // Parse the JSON response with robust error handling
+    let companies;
+    try {
+      console.log('Company search response length:', response.length);
+      
+      // More aggressive cleaning
+      let cleanedResponse = response
+        .replace(/```json\n?/gi, '')
+        .replace(/```\n?/gi, '')
+        .replace(/^[^\[]*/, '') // Remove text before [
+        .replace(/[^\]]*$/, '') // Remove text after ]
+        .trim();
+      
+      // Try to extract JSON array
+      const jsonMatch = cleanedResponse.match(/\[[\s\S]*?\]/);
+      if (jsonMatch) {
+        cleanedResponse = jsonMatch[0];
+      }
+      
+      console.log('Cleaned company response:', cleanedResponse.substring(0, 200));
+      
+      companies = JSON.parse(cleanedResponse);
+      
+      if (!Array.isArray(companies)) {
+        throw new Error('Invalid response format - not an array');
+      }
+      
+      // Filter out any non-string entries and limit to 10
+      companies = companies
+        .filter(c => typeof c === 'string' && c.trim().length > 0)
+        .slice(0, 10);
+      
+      if (companies.length === 0) {
+        throw new Error('No valid companies in response');
+      }
+      
+      console.log(`Found ${companies.length} companies`);
+      
+    } catch (parseError) {
+      console.error('Error parsing companies:', parseError.message);
+      console.error('Response:', response.substring(0, 300));
+      
+      // Fallback with common tech companies matching the query
+      const queryLower = query.toLowerCase();
+      const fallbackCompanies = [
+        'Google', 'Microsoft', 'Amazon', 'Apple', 'Meta',
+        'Netflix', 'Tesla', 'Uber', 'Airbnb', 'Adobe',
+        'Oracle', 'IBM', 'Salesforce', 'Intel', 'Nvidia',
+        'Twitter', 'LinkedIn', 'Spotify', 'Slack', 'Zoom',
+        'PayPal', 'Stripe', 'Square', 'Shopify', 'Atlassian'
+      ];
+      
+      companies = fallbackCompanies
+        .filter(c => c.toLowerCase().includes(queryLower))
+        .slice(0, 10);
+      
+      // If no matches, suggest based on first letter
+      if (companies.length === 0) {
+        companies = fallbackCompanies
+          .filter(c => c.toLowerCase().startsWith(queryLower[0]))
+          .slice(0, 10);
+      }
+      
+      // If still no matches, return top 10
+      if (companies.length === 0) {
+        companies = fallbackCompanies.slice(0, 10);
+      }
+      
+      console.log('Using fallback companies:', companies.length);
+    }
+
+    res.status(200).json({ companies });
+  } catch (error) {
+    console.error('Error searching companies:', error);
+    res.status(500).json({ error: 'Failed to search companies' });
   }
 };

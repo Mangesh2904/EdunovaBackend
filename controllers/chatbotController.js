@@ -2,14 +2,32 @@ import { askGemini } from '../services/geminiService.js';
 import Chat from '../models/Chat.js';
 
 export const askChatbot = async (req, res) => {
-  const { message } = req.body;
-  const userId = req.user ? req.user.id : null; // Handle unauthenticated requests
+  const { message, chatHistory = [] } = req.body;
+  const userId = req.user ? req.user.id : null;
 
   try {
-    const botResponse = await askGemini(message);
+    // Enhanced system context for study-focused responses
+    const systemContext = `You are EduBot, a friendly and knowledgeable educational assistant for Edunova - a learning platform. Your purpose is to help students with:
+
+1. Academic subjects (Math, Science, Programming, etc.)
+2. Study tips and learning strategies
+3. Career guidance and skill development
+4. Technology and coding questions
+5. General educational advice
+
+IMPORTANT RULES:
+- Be warm, encouraging, and supportive
+- Keep responses clear, concise, and easy to understand
+- Use examples and analogies when explaining concepts
+- If asked about non-educational topics (entertainment, politics, gossip, etc.), politely redirect: "I'm here to help with your studies and learning! 📚 How can I assist you with your education today?"
+- Encourage curiosity and deeper learning
+- Suggest resources when relevant (but don't make up URLs)
+
+User's question: ${message}`;
+
+    const botResponse = await askGemini(systemContext, chatHistory);
     
     if (userId) {
-      // Save chat to database if user is authenticated
       const chat = new Chat({
         userId,
         userMessage: message,
