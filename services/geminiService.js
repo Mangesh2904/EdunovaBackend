@@ -226,7 +226,35 @@ Make sure each URL follows the pattern: https://www.youtube.com/watch?v=XXXXXXXX
       cleanedResponse = jsonObjectMatch[0];
     }
     
-    const resources = JSON.parse(cleanedResponse);
+    // Additional JSON sanitization
+    // Remove trailing commas before closing brackets/braces
+    cleanedResponse = cleanedResponse
+      .replace(/,(\s*[}\]])/g, '$1')
+      // Fix missing commas between array elements
+      .replace(/\}(\s*)\{/g, '},$1{')
+      // Remove any control characters
+      .replace(/[\x00-\x1F\x7F]/g, '');
+    
+    let resources;
+    try {
+      resources = JSON.parse(cleanedResponse);
+    } catch (parseError) {
+      console.error('JSON parsing failed, raw response:', cleanedResponse);
+      console.error('Parse error:', parseError.message);
+      
+      // Return a fallback structure
+      return {
+        youtube: [
+          {
+            title: `${role} Interview Preparation at ${companyName}`,
+            channel: "Interview Prep Channel",
+            url: `https://www.youtube.com/results?search_query=${encodeURIComponent(role + ' interview ' + companyName)}`,
+            type: "Search Results",
+            description: "Automated search for relevant videos"
+          }
+        ]
+      };
+    }
     
     // Validate that we have YouTube resources
     if (!resources.youtube || !Array.isArray(resources.youtube) || resources.youtube.length === 0) {
