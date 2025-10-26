@@ -405,6 +405,6 @@ For support, please open an issue in the repository or contact the maintainers.
 ---
 
 **Live API**: [https://edunovabackend.onrender.com](https://edunovabackend.onrender.com)  
-**Frontend**: [https://edunova-frontend.onrender.com](https://edunova-frontend.onrender.com)
+**Frontend**: [https://edunovafrontend.onrender.com](https://edunovafrontend.onrender.com)
 
 Made with ❤️ by the Edunova Team

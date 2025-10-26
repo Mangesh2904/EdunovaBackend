@@ -22,7 +22,11 @@ const app = express();
 
 // Configure CORS for specific frontend URL
 app.use(cors({
-  origin: '*', // Replace with your actual frontend URL
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:5000',
+    'https://edunovafrontend.onrender.com'
+  ],
   credentials: true,
 }));
 
