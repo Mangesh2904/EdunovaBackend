@@ -235,6 +235,21 @@ Make sure each URL follows the pattern: https://www.youtube.com/watch?v=XXXXXXXX
       // Remove any control characters
       .replace(/[\x00-\x1F\x7F]/g, '');
     
+    // Handle incomplete JSON (truncated response)
+    // Count opening and closing brackets
+    const openBraces = (cleanedResponse.match(/\{/g) || []).length;
+    const closeBraces = (cleanedResponse.match(/\}/g) || []).length;
+    const openBrackets = (cleanedResponse.match(/\[/g) || []).length;
+    const closeBrackets = (cleanedResponse.match(/\]/g) || []).length;
+    
+    // Add missing closing brackets/braces
+    if (openBrackets > closeBrackets) {
+      cleanedResponse += ']'.repeat(openBrackets - closeBrackets);
+    }
+    if (openBraces > closeBraces) {
+      cleanedResponse += '}'.repeat(openBraces - closeBraces);
+    }
+    
     let resources;
     try {
       resources = JSON.parse(cleanedResponse);
