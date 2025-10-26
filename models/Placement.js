@@ -14,29 +14,13 @@ const placementSchema = new mongoose.Schema({
     type: String, 
     required: true 
   },
-  questions: [{
-    question: {
-      type: String,
-      required: true
-    },
-    options: [{
-      type: String,
-      required: true
-    }],
-    correctAnswer: {
-      type: Number,
-      required: true,
-      min: 0,
-      max: 3
-    },
-    explanation: {
-      type: String,
-      required: true
-    }
-  }],
-  concepts: { 
+  guidance: { 
     type: String, 
     required: true 
+  },
+  resources: {
+    type: mongoose.Schema.Types.Mixed,
+    required: true
   },
   createdAt: { 
     type: Date, 

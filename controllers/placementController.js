@@ -1,4 +1,4 @@
-import { askGemini, generateContent } from '../services/geminiService.js';
+import { askGemini, generateContent, getYouTubeResources } from '../services/geminiService.js';
 import Placement from '../models/Placement.js';
 
 export const generatePlacementContent = async (req, res) => {
@@ -22,231 +22,94 @@ export const generatePlacementContent = async (req, res) => {
       return res.status(400).json({ error: 'Role is required' });
     }
 
-    // Generate company-specific, purely technical questions
-    const questionsPrompt = `You are a senior technical interviewer at ${companyName}. Generate 10 TECHNICAL interview questions for the ${role} position.
+    // Generate comprehensive placement preparation guidance
+    const guidancePrompt = `Create a comprehensive placement preparation guide for the ${role} position at ${companyName}.
 
-**CRITICAL: ALL QUESTIONS MUST BE TECHNICAL - NO BEHAVIORAL QUESTIONS**
+**CRITICAL: Make this guide practical, actionable, and company-specific.**
 
-**RESEARCH ${companyName}:**
-- Core products, services, and technologies
-- Tech stack: programming languages, frameworks, databases, cloud services
-- Scale and technical challenges
-- Technologies ${role} works with at ${companyName}
+Structure the guide with these sections:
 
-**QUESTION BREAKDOWN:**
-1. 4 questions: Data Structures & Algorithms (arrays, trees, graphs, sorting, searching)
-2. 3 questions: System Design & Architecture (scalability, databases, APIs, microservices)
-3. 2 questions: Technology-Specific (${companyName}'s tech stack - Java, Python, React, AWS, etc.)
-4. 1 question: Problem Solving & Optimization (time/space complexity, trade-offs)
+## About ${companyName}
+- Brief company overview and what they do
+- Company culture and values
+- Why work at ${companyName}
+- Recent news or developments
 
-**FORMAT - Return ONLY this JSON array:**
-[
-  {
-    "question": "At ${companyName}, you need to process ${companyName}-scale data. Which data structure would you use for [specific technical scenario]?",
-    "options": ["Array with O(n) lookup", "Hash Map with O(1) lookup", "Binary Search Tree with O(log n)", "Trie with O(k) complexity"],
-    "correctAnswer": 1,
-    "explanation": "Hash Map is optimal because [technical reasoning with Big-O analysis]. At ${companyName}'s scale of [mention scale], this provides best performance.",
-    "difficulty": "Medium",
-    "category": "Data Structures"
-  }
-]
+## ${role} Role at ${companyName}
+- Key responsibilities and expectations
+- Required technical skills
+- Day-to-day activities
+- Team structure and collaboration
 
-**REQUIREMENTS:**
-- ALL questions MUST be technical (coding, algorithms, system design, architecture)
-- NO behavioral, cultural, or soft-skill questions
-- Use ${companyName}'s actual technologies (AWS, GCP, Kubernetes, React, Node.js, etc.)
-- Include Big-O notation and complexity analysis where relevant
-- Reference ${companyName}'s scale (millions of users, petabytes of data, etc.)
-- Mix difficulty: 3 Easy, 5 Medium, 2 Hard
-- Categories: "Data Structures", "Algorithms", "System Design", "Coding", "Databases", "Architecture"
-- Provide detailed technical explanations
+## Interview Process
+- Typical interview rounds (phone screen, technical, behavioral, system design, etc.)
+- What to expect in each round
+- Duration and timeline
+- Common interview formats
 
-Return ONLY the JSON array, no other text.`;
+## Technical Preparation
+### Core Topics to Master
+- List the most important technical topics for ${role}
+- Prioritize based on ${companyName}'s tech stack
+- Include both fundamental and advanced concepts
 
-    // Generate concepts
-    const conceptsPrompt = `Create a comprehensive study guide for ${companyName} ${role} position placement preparation. Include the most important concepts, topics, and areas to focus on specifically for the ${role} role.
+### Key Skills Required
+- Programming languages (with proficiency levels)
+- Frameworks and tools
+- System design knowledge
+- Problem-solving approaches
 
-**FORMATTING REQUIREMENTS:**
-- Use ## for main section headers
-- Use ### for subsection headers  
-- Use bullet points (-) for lists
-- Use **bold** for important terms
-- Use *italics* for emphasis
-- Include code examples in \`backticks\` when relevant
-- Structure it like a professional study guide
+### Data Structures & Algorithms
+- Most frequently asked DS&A topics
+- Difficulty levels to focus on
+- Time complexity analysis tips
 
-**SECTIONS TO INCLUDE:**
-
-## Technical Skills Required for ${role}
-### Programming Languages
-- List the main programming languages ${companyName} uses for ${role} positions
-- Mention proficiency levels expected for ${role}
-
-### Role-Specific Technical Skills
-- Key technical skills specific to ${role}
-- Tools and technologies commonly used by ${role} at ${companyName}
-- Industry standards and best practices for ${role}
-
-### Data Structures & Algorithms (if applicable to ${role})
-- Key data structures to master for ${role}
-- Important algorithms and their applications in ${role}
-- Common problem patterns relevant to ${role}
-
-### System Design (if applicable to ${role})
-- System design concepts relevant to ${role}
-- Scalability considerations for ${role}
-- Architecture patterns used in ${role}
-
-## Company-Specific Information
-### About ${companyName}
-- Brief company overview
-- Core products/services relevant to ${role}
-- Engineering/team culture and values
-- How ${role} fits into ${companyName}'s organization
-
-### Interview Process for ${role}
-- Typical interview rounds for ${role} position
-- What to expect in each round for ${role}
-- Role-specific interview formats and assessments
-- Tips for success in ${role} interviews
-
-## Key Topics to Study
-### Core Computer Science
-- Important CS fundamentals
-- Operating systems concepts
-- Database management
-- Networking basics
-
-### Advanced Topics
-- Distributed systems
-- Cloud computing (if relevant)
-- Microservices architecture
-- Security considerations
+### System Design (if applicable)
+- Key system design concepts
+- Scalability and distributed systems
+- ${companyName}-specific architecture patterns
 
 ## Preparation Strategy
-### Timeline
-- Recommended preparation duration
-- Week-by-week study plan
-- Practice schedule
+### Timeline (Recommended)
+- Week 1-2: Focus areas
+- Week 3-4: Focus areas
+- Week 5-6: Final preparation
 
-### Resources
-- Recommended books and courses
-- Online platforms for practice
-- Mock interview resources
+### Daily Study Plan
+- Hours to dedicate
+- Topic distribution
+- Practice vs Theory ratio
 
-## Common Interview Questions Categories
-### Technical Questions
-- Most frequently asked topics
-- Coding problem patterns
-- System design scenarios
+### Practice Recommendations
+- Number of problems to solve
+- Types of problems to focus on
+- Mock interview importance
 
-### Behavioral Questions
-- Leadership and teamwork
-- Problem-solving approach
-- Company fit questions
-
-## Tips for Success
-### Technical Interview Tips
-- Code optimization strategies
-- Communication during coding
-- Testing and debugging approach
-
-### General Interview Tips
-- How to research the company
+## Important Tips
+- Company-specific interview tips
+- Common mistakes to avoid
+- How to stand out
 - Questions to ask interviewers
-- Follow-up best practices
 
-Make it comprehensive, actionable, and specifically tailored to ${companyName}'s ${role} interview process and requirements.`;
+## Soft Skills & Behavioral Prep
+- Common behavioral questions for ${role}
+- STAR method examples
+- Leadership and teamwork scenarios
+- Communication tips
 
-    // Get questions and concepts in parallel using generateContent (no chat history needed)
-    console.log('Sending prompts to Gemini for:', companyName, 'and role:', role);
-    const [questionsResponse, conceptsResponse] = await Promise.all([
-      generateContent(questionsPrompt, 4096),
-      generateContent(conceptsPrompt, 4096)
-    ]);
-    console.log('Received responses from Gemini');
-    console.log('Questions response preview:', questionsResponse.substring(0, 100));
+Format this professionally with clear markdown headers, bullet points, and actionable advice. Make it comprehensive but scannable.`;
 
-    // Parse questions JSON with robust error handling
-    let questions;
-    try {
-      console.log('Raw questions response length:', questionsResponse.length);
-      console.log('First 200 chars:', questionsResponse.substring(0, 200));
-      
-      // Clean the response to extract JSON - more aggressive cleaning
-      let cleanedQuestionsResponse = questionsResponse
-        .replace(/```json\n?/gi, '')
-        .replace(/```\n?/gi, '')
-        .replace(/^[^[\{]*/, '') // Remove any text before [ or {
-        .replace(/[^\]\}]*$/, '') // Remove any text after ] or }
-        .trim();
-      
-      // Try to find JSON array in the response
-      const jsonArrayMatch = cleanedQuestionsResponse.match(/\[[\s\S]*\]/);
-      if (jsonArrayMatch) {
-        cleanedQuestionsResponse = jsonArrayMatch[0];
-      }
-      
-      console.log('Cleaned response length:', cleanedQuestionsResponse.length);
-      
-      questions = JSON.parse(cleanedQuestionsResponse);
-      
-      // Validate questions format
-      if (!Array.isArray(questions) || questions.length === 0) {
-        throw new Error('Invalid questions format - not an array or empty');
-      }
-
-      // Validate and fix each question
-      questions = questions.map((q, index) => {
-        if (!q.question || !Array.isArray(q.options) || q.options.length !== 4) {
-          console.warn(`Question ${index} missing required fields, using default`);
-          return {
-            question: `Technical question ${index + 1} for ${role} at ${companyName}`,
-            options: ["Option A", "Option B", "Option C", "Option D"],
-            correctAnswer: 0,
-            explanation: "Detailed explanation needed.",
-            difficulty: "Medium",
-            category: "Technical"
-          };
-        }
-        // Ensure correctAnswer is valid
-        if (typeof q.correctAnswer !== 'number' || q.correctAnswer < 0 || q.correctAnswer > 3) {
-          q.correctAnswer = 0;
-        }
-        // Add default values if missing
-        q.difficulty = q.difficulty || "Medium";
-        q.category = q.category || "Technical";
-        q.explanation = q.explanation || "Review this concept for interviews.";
-        return q;
-      });
-
-      console.log(`Successfully parsed ${questions.length} questions`);
-
-    } catch (parseError) {
-      console.error('Error parsing questions JSON:', parseError.message);
-      console.error('Response that failed:', questionsResponse.substring(0, 500));
-      
-      // Fallback questions with company/role context
-      questions = [
-        {
-          question: `What are the key responsibilities of a ${role} at ${companyName}?`,
-          options: ["Data Analysis", "Stakeholder Management", "Strategic Planning", "All of the above"],
-          correctAnswer: 3,
-          explanation: `As a ${role}, you'll typically handle multiple responsibilities including analysis, communication, and planning.`,
-          difficulty: "Easy",
-          category: "Role Understanding"
-        },
-        {
-          question: `Which skill is most important for ${role} position?`,
-          options: ["Technical Knowledge", "Communication", "Problem Solving", "All are equally important"],
-          correctAnswer: 3,
-          explanation: "A balanced skill set is crucial for success in this role.",
-          difficulty: "Medium",
-          category: "Skills Assessment"
-        }
-      ];
-      console.log('Using fallback questions');
-    }
+    // Get guidance and YouTube resources from Gemini
+    console.log('Fetching content from Gemini for:', companyName, 'and role:', role);
+    
+    // Always get guidance from Gemini
+    const guidanceResponse = await generateContent(guidancePrompt, 4096);
+    console.log('Received guidance from Gemini');
+    
+    // Get YouTube resources with direct links from Gemini only
+    console.log('Fetching YouTube resources from Gemini...');
+    const resources = await getYouTubeResources(companyName, role);
+    console.log(`Got ${resources.youtube.length} YouTube resources from Gemini`);
 
     // Save to database if user is authenticated
     if (userId) {
@@ -255,8 +118,8 @@ Make it comprehensive, actionable, and specifically tailored to ${companyName}'s
           userId,
           companyName: companyName.trim(),
           role: role.trim(),
-          questions,
-          concepts: conceptsResponse
+          guidance: guidanceResponse,
+          resources: resources
         });
         await placement.save();
       } catch (saveError) {
@@ -266,8 +129,8 @@ Make it comprehensive, actionable, and specifically tailored to ${companyName}'s
     }
 
     res.status(200).json({
-      questions,
-      concepts: conceptsResponse,
+      guidance: guidanceResponse,
+      resources: resources,
       companyName: companyName.trim(),
       role: role.trim()
     });
@@ -368,7 +231,9 @@ Return exactly 10 suggestions that match "${query}".`;
         'Netflix', 'Tesla', 'Uber', 'Airbnb', 'Adobe',
         'Oracle', 'IBM', 'Salesforce', 'Intel', 'Nvidia',
         'Twitter', 'LinkedIn', 'Spotify', 'Slack', 'Zoom',
-        'PayPal', 'Stripe', 'Square', 'Shopify', 'Atlassian'
+        'PayPal', 'Stripe', 'Square', 'Shopify', 'Atlassian',
+        'Dropbox', 'Snapchat', 'Pinterest', 'Reddit', 'Discord',
+        'GitHub', 'GitLab', 'Figma', 'Notion', 'Asana'
       ];
       
       companies = fallbackCompanies

@@ -1,18 +1,22 @@
 import Checklist from '../models/Checklist.js';
 
 export const addToChecklist = async (req, res) => {
-  const { content } = req.body;
+  const { content, fullContent, type, sourceId } = req.body;
   const userId = req.user.id;
 
   try {
     const checklistItem = new Checklist({
       userId,
-      content,
+      content: content || fullContent, // Use fullContent if content is not provided
+      fullContent: fullContent || content, // Store full details
+      type: type || 'general',
+      sourceId: sourceId || null,
     });
     await checklistItem.save();
 
     res.status(201).json({ message: 'Added to checklist', item: checklistItem });
   } catch (error) {
+    console.error('Error adding to checklist:', error);
     res.status(500).json({ error: 'Failed to add to checklist' });
   }
 };
